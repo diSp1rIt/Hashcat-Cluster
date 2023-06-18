@@ -8,15 +8,27 @@ from threading import Thread
 from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM
 
 
-def send_command(cmd: bytes, ip: str):
+def send_command(cmd: bytes, ip: str, wait=True):
     try:
         with socket(AF_INET, SOCK_STREAM) as s:
             s.settimeout(5)
             s.connect((ip, 24545))
             s.sendall(cmd)
-            return s.recv(1024)
-    except:
+            if wait:
+                return s.recv(1024)
+            return
+    except Exception as e:
+        print(e)
         return False
+
+
+class Node:
+    def __init__(self, ip):
+        self.ip = ip
+        self.benchmark = {}
+
+    def setBenchmark(self, mode, value):
+        self.benchmark[mode] = value
 
 
 process: subprocess.Popen = None
@@ -124,6 +136,7 @@ def user_command_handler(cmd: str):
         print(status)
     elif cmd_list[0] == 'add':
         if send_command(b'setup', cmd_list[1]) == b'done':
+            nodes.add(cmd_list[1])
             print(f'Added node {cmd_list[1]}')
         else:
             print(f'Node is not accessible')
@@ -136,7 +149,7 @@ def user_command_handler(cmd: str):
                 print(f'{ip} is not answering')
     elif cmd_list[0] == 'bench' or cmd_list[0] == 'benchmark':
         for ip in nodes:
-            send_command(b'bench' + f'|{cmd_list[1]}'.encode(), ip)
+            send_command(b'bench' + f'|{cmd_list[1]}'.encode(), ip, wait=False)
         print('Benchmark started')
     else:
         print('Command not found')
@@ -157,10 +170,10 @@ def system_command_handler(cmd: bytes, client: socket, addr: str, server_ip: str
         res = subprocess.check_output([progname, '-m', cmd_list[1].decode(), '-b', '--quiet', '--machine-readable'])
         with socket(AF_INET, SOCK_STREAM) as s:
             s.connect((addr, 24545))
-            s.sendall(b'benchans|' + res.split(b':')[-1])
+            s.sendall(b'benchans|' + cmd_list[1] + b'|' + res.split(b':')[-1])
             s.close()
     elif cmd_list[0] == b'benchans':
-        print(f'From {addr}:', cmd_list[1].decode())
+        print(f'From {addr}:', cmd_list[1].decode(), cmd_list[2].decode())
     client.close()
 
 
