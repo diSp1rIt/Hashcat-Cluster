@@ -5,11 +5,21 @@ from os.path import exists, isdir
 from os import chdir
 from time import sleep
 from threading import Thread
+from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM
 
 process: subprocess.Popen = None
 thread: Thread = None
 last_output = ''
 exit_ = False
+nodes = set()
+
+
+def terminate():
+    if process:
+        process.kill()
+    if thread.isAlive():
+        exit_ = True
+    exit()
 
 
 def load_hashcat():
@@ -24,15 +34,15 @@ def load_hashcat():
         return 'hashcat'
 
 
-def start_hashcat(hash: str, hash_mod: str = '0', workload_profile: str = '1',
-                  mask: str = None):
+def start_hashcat(hash: str, mask: str, hash_mod: str = '0', workload_profile: str = '1',
+                  ):
     global process, thread
 
     progname = load_hashcat()
 
     try:
         print(subprocess.check_output([progname, '-m', hash_mod, '--show', hash]).decode())
-        exit()
+        terminate()
     except:
         pass
 
@@ -83,32 +93,63 @@ def user_command_handler(cmd: str):
 
     print(cmd)
     cmd = cmd.strip()
-    if cmd == 'exit' or cmd == 'quit':
+    cmd_list = cmd.split()
+    if cmd_list[0] == 'exit' or cmd_list[0] == 'quit':
         # TODO exiting all nodes
-        process.kill()
-        exit_ = True
+        terminate()
         print('Bye!')
         exit()
-    elif cmd.split()[0] == 'echo':
-        print(' '.join(cmd.split()[1:]))
-    elif cmd.split()[0] == 'start':
+    elif cmd_list[0] == 'echo':
+        print(' '.join(cmd_list[1:]))
+    elif cmd_list[0] == 'start':
         print('Wait...')
         start_hashcat(
-            hash='5e8667a439c68f5145dd2fcbecf02209',
+            hash=cmd_list[1],
+            mask=cmd_list[2]
         )
         print('Started')
-    elif cmd == 'status':
+    elif cmd_list[0] == 'status':
         status = get_status()
         print(status)
+    elif cmd_list[0] == 'add':
+        with socket() as s:
+            s.connect((cmd_list[1], 24545))
+            s.sendall(b'setup')
+            if s.recv(1024) == b'done':
+                nodes.add(cmd_list[1])
+
     else:
         print('Command not found')
 
 
-def system_command_handler(cmd: str):
-    pass
+def system_command_handler(cmd: bytes, client: socket, addr: str, server_ip: str):
+    cmd = cmd.strip()
+    cmd_list = cmd.split(b'|')
+    if cmd_list[0] == b'echo':
+        client.sendall(cmd_list[1])
+    elif cmd_list[0] == b'setup':
+        nodes.add(addr)
+        client.sendall(b'done')
 
 
 def main():
+    def server():
+        s = socket(AF_INET, SOCK_DGRAM)
+        s.connect(('10.0.0.0', 0))
+        ip = s.getsockname()[0]
+        del s
+
+        with socket(AF_INET, SOCK_STREAM) as s:
+            s.bind((ip, 24545))
+            print(f'Started listener on {ip}:24545')
+            s.listen()
+            while not exit_:
+                sock, addr = s.accept()
+                data = sock.recv(1024)
+                system_command_handler(data, sock, addr[0], ip)
+            s.close()
+
+    server()
     while True:
         cmd = input('> ')
         user_command_handler(cmd)
