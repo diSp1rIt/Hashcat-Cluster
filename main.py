@@ -30,6 +30,17 @@ def send_command(cmd: bytes, ip: str, wait=True):
         return False
 
 
+def load_hashcat():
+    if platform == 'win32':
+        if not isdir('hashcat'):
+            raise EnvironmentError('No such directory "hashcat"')
+        if not exists('hashcat/hashcat.exe'):
+            raise EnvironmentError('No such file "hashcat/hashcat.exe"')
+        chdir('hashcat')
+        return 'hashcat.exe'
+    if platform == 'linux':
+        return 'hashcat'
+
 class Node:
     def __init__(self, ip):
         self.ip = ip
@@ -44,6 +55,7 @@ thread: Thread = None
 last_output = ''
 exit_ = False
 nodes = set()
+progname = load_hashcat()
 
 
 def terminate():
@@ -54,23 +66,9 @@ def terminate():
     exit()
 
 
-def load_hashcat():
-    if platform == 'win32':
-        if not isdir('hashcat'):
-            raise EnvironmentError('No such directory "hashcat"')
-        if not exists('hashcat/hashcat.exe'):
-            raise EnvironmentError('No such file "hashcat/hashcat.exe"')
-        chdir('hashcat')
-        return 'hashcat.exe'
-    if platform == 'linux':
-        return 'hashcat'
-
-
 def start_hashcat(hash: str, mask: str, hash_mod: str = '0', workload_profile: str = '1',
                   ):
     global process, thread
-
-    progname = load_hashcat()
 
     try:
         print(subprocess.check_output([progname, '-m', hash_mod, '--show', hash]).decode())
@@ -174,7 +172,6 @@ def system_command_handler(cmd: bytes, client: socket, addr: str, server_ip: str
         print(f'Added node {addr}')
     elif cmd_list[0] == b'bench':
         print('Node started benchmark')
-        progname = load_hashcat()
         res = subprocess.check_output([progname, '-m', cmd_list[1].decode(), '-b', '--quiet', '--machine-readable'])
         with socket(AF_INET, SOCK_STREAM) as s:
             s.connect((addr, 24545))
