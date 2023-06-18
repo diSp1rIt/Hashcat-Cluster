@@ -91,7 +91,6 @@ def get_status():
 def user_command_handler(cmd: str):
     global exit_
 
-    print(cmd)
     cmd = cmd.strip()
     cmd_list = cmd.split()
     if cmd_list[0] == 'exit' or cmd_list[0] == 'quit':
@@ -117,6 +116,7 @@ def user_command_handler(cmd: str):
             s.sendall(b'setup')
             if s.recv(1024) == b'done':
                 nodes.add(cmd_list[1])
+                print(f'Added node {cmd_list[1]}')
 
     else:
         print('Command not found')
@@ -130,6 +130,8 @@ def system_command_handler(cmd: bytes, client: socket, addr: str, server_ip: str
     elif cmd_list[0] == b'setup':
         nodes.add(addr)
         client.sendall(b'done')
+        client.close()
+        print(f'Added node {addr}')
 
 
 def main():
