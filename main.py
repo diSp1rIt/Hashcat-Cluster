@@ -7,6 +7,18 @@ from time import sleep
 from threading import Thread
 from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM
 
+
+def send_command(cmd: bytes, ip: str):
+    try:
+        with socket(AF_INET, SOCK_STREAM) as s:
+            s.settimeout(5)
+            s.connect((ip, 24545))
+            s.sendall(cmd)
+            return s.recv(1024)
+    except:
+        return False
+
+
 process: subprocess.Popen = None
 thread: Thread = None
 last_output = ''
@@ -111,25 +123,20 @@ def user_command_handler(cmd: str):
         status = get_status()
         print(status)
     elif cmd_list[0] == 'add':
-        with socket(AF_INET, SOCK_STREAM) as s:
-            s.settimeout(5)
-            s.connect((cmd_list[1], 24545))
-            s.sendall(b'setup')
-            if s.recv(1024) == b'done':
-                nodes.add(cmd_list[1])
-                print(f'Added node {cmd_list[1]}')
+        if send_command(b'setup', cmd_list[1]) == b'done':
+            print(f'Added node {cmd_list[1]}')
+        else:
+            print(f'Node is not accessible')
     elif cmd_list[0] == 'send':
         for ip in nodes:
-            with socket(AF_INET, SOCK_STREAM) as s:
-                s.connect((ip, 24545))
-                s.sendall(' '.join(cmd_list[1:]).encode())
-                print(f'From {ip}: {s.recv(1024).decode()}')
+            res = send_command(' '.join(cmd_list[1:]).encode(), ip)
+            if res:
+                print(f'From {ip}: {res}')
+            else:
+                print(f'{ip} is not answering')
     elif cmd_list[0] == 'bench' or cmd_list[0] == 'benchmark':
         for ip in nodes:
-            with socket(AF_INET, SOCK_STREAM) as s:
-                s.connect((ip, 24545))
-                s.sendall(b'bench' + f'|{cmd_list[1]}'.encode())
-                s.close()
+            send_command(b'bench' + f'|{cmd_list[1]}'.encode(), ip)
         print('Benchmark started')
     else:
         print('Command not found')
