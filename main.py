@@ -20,18 +20,21 @@ def load_hashcat():
             raise EnvironmentError('No such file "hashcat/hashcat.exe"')
         chdir('hashcat')
         return 'hashcat.exe'
-    if platform == 'posix':
+    if platform == 'linux':
         return 'hashcat'
 
 
-def start_hashcat(hash: str, hash_mod: str = '0', workload_profile: str = '3',
+def start_hashcat(hash: str, hash_mod: str = '0', workload_profile: str = '1',
                   mask: str = None):
     global process, thread
 
     progname = load_hashcat()
 
-    print(subprocess.check_output([progname, '-m', hash_mod, '--show', hash]).decode())
-    exit()
+    try:
+        print(subprocess.check_output([progname, '-m', hash_mod, '--show', hash]).decode())
+        exit()
+    except:
+        pass
 
     command = ' '.join([
         progname,
@@ -52,7 +55,8 @@ def start_hashcat(hash: str, hash_mod: str = '0', workload_profile: str = '3',
         command += f' {mask}'
     process = subprocess.Popen(
         command.split(),
-        stdout=subprocess.PIPE
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE
     )
 
     def manage_output():
@@ -76,6 +80,9 @@ def get_status():
 
 def user_command_handler(cmd: str):
     global exit_
+
+    print(cmd)
+    cmd = cmd.strip()
     if cmd == 'exit' or cmd == 'quit':
         # TODO exiting all nodes
         process.kill()
