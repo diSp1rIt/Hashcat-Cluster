@@ -17,8 +17,7 @@ nodes = set()
 def terminate():
     if process:
         process.kill()
-    if thread.isAlive():
-        exit_ = True
+    exit_ = True
     exit()
 
 
@@ -111,7 +110,8 @@ def user_command_handler(cmd: str):
         status = get_status()
         print(status)
     elif cmd_list[0] == 'add':
-        with socket() as s:
+        with socket(AF_INET, SOCK_STREAM) as s:
+            s.settimeout(5)
             s.connect((cmd_list[1], 24545))
             s.sendall(b'setup')
             if s.recv(1024) == b'done':
@@ -119,7 +119,7 @@ def user_command_handler(cmd: str):
                 print(f'Added node {cmd_list[1]}')
     elif cmd_list[0] == 'send':
         for ip in nodes:
-            with socket() as s:
+            with socket(AF_INET, SOCK_STREAM) as s:
                 s.connect((ip, 24545))
                 s.sendall(cmd_list[1].encode())
                 print(f'From {ip}: {s.recv(1024).decode()}')
