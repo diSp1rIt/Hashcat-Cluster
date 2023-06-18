@@ -15,6 +15,7 @@ nodes = set()
 
 
 def terminate():
+    global exit_
     if process:
         process.kill()
     exit_ = True
@@ -123,6 +124,13 @@ def user_command_handler(cmd: str):
                 s.connect((ip, 24545))
                 s.sendall(' '.join(cmd_list[1:]).encode())
                 print(f'From {ip}: {s.recv(1024).decode()}')
+    elif cmd_list[0] == 'bench' or cmd_list[0] == 'benchmark':
+        for ip in nodes:
+            with socket(AF_INET, SOCK_STREAM) as s:
+                s.connect((ip, 24545))
+                s.sendall(b'bench' + f'|{cmd_list[1]}'.encode())
+                s.close()
+        print('Benchmark started')
     else:
         print('Command not found')
 
@@ -136,6 +144,15 @@ def system_command_handler(cmd: bytes, client: socket, addr: str, server_ip: str
         nodes.add(addr)
         client.sendall(b'done')
         print(f'Added node {addr}')
+    elif cmd_list[0] == b'bench':
+        progname = load_hashcat()
+        res = subprocess.check_output([progname, '-m', cmd_list[1].decode(), '-b', '--quiet', '--machine-readable'])
+        with socket(AF_INET, SOCK_STREAM) as s:
+            s.connect((addr, 24545))
+            s.sendall(b'benchans|' + res.split(b':')[-1])
+            s.close()
+    elif cmd_list[0] == b'benchans':
+        print(f'From {addr}:', cmd_list[1].decode())
     client.close()
 
 
