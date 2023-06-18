@@ -8,12 +8,12 @@ from threading import Thread
 from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM
 
 
-def print_(*args, **kwargs):
-    print('\r', end='')
-    print(*args, end='\n> ')
+print_ = print
 
 
-print = print_
+def print(*args, **kwargs):
+    print_('\r', end='')
+    print_(*args, end='\n> ')
 
 
 def send_command(cmd: bytes, ip: str, wait=True):
