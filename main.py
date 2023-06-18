@@ -149,7 +149,9 @@ def main():
                 system_command_handler(data, sock, addr[0], ip)
             s.close()
 
-    server()
+    thr = Thread(target=server)
+    thr.start()
+    sleep(1)
     while True:
         cmd = input('> ')
         user_command_handler(cmd)
