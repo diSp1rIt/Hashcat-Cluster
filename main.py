@@ -117,7 +117,12 @@ def user_command_handler(cmd: str):
             if s.recv(1024) == b'done':
                 nodes.add(cmd_list[1])
                 print(f'Added node {cmd_list[1]}')
-
+    elif cmd_list[0] == 'send':
+        for ip in nodes:
+            with socket() as s:
+                s.connect((ip, 24545))
+                s.sendall(cmd_list[1].encode())
+                print(f'From {ip}: {s.recv(1024).decode()}')
     else:
         print('Command not found')
 
@@ -130,8 +135,8 @@ def system_command_handler(cmd: bytes, client: socket, addr: str, server_ip: str
     elif cmd_list[0] == b'setup':
         nodes.add(addr)
         client.sendall(b'done')
-        client.close()
         print(f'Added node {addr}')
+    client.close()
 
 
 def main():
