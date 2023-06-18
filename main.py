@@ -121,7 +121,7 @@ def user_command_handler(cmd: str):
         for ip in nodes:
             with socket(AF_INET, SOCK_STREAM) as s:
                 s.connect((ip, 24545))
-                s.sendall(cmd_list[1].encode())
+                s.sendall(' '.join(cmd_list[1:]).encode())
                 print(f'From {ip}: {s.recv(1024).decode()}')
     else:
         print('Command not found')
@@ -148,10 +148,14 @@ def main():
 
         with socket(AF_INET, SOCK_STREAM) as s:
             s.bind((ip, 24545))
+            s.settimeout(5)
             print(f'Started listener on {ip}:24545')
-            s.listen()
             while not exit_:
-                sock, addr = s.accept()
+                s.listen()
+                try:
+                    sock, addr = s.accept()
+                except:
+                    continue
                 data = sock.recv(1024)
                 system_command_handler(data, sock, addr[0], ip)
             s.close()
