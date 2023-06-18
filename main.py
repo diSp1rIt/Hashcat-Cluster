@@ -145,6 +145,7 @@ def system_command_handler(cmd: bytes, client: socket, addr: str, server_ip: str
         client.sendall(b'done')
         print(f'Added node {addr}')
     elif cmd_list[0] == b'bench':
+        print('Node started benchmark')
         progname = load_hashcat()
         res = subprocess.check_output([progname, '-m', cmd_list[1].decode(), '-b', '--quiet', '--machine-readable'])
         with socket(AF_INET, SOCK_STREAM) as s:
