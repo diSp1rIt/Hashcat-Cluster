@@ -210,7 +210,7 @@ def main():
     thr.start()
     sleep(1)
     while True:
-        cmd = input('> ')
+        cmd = input()
         user_command_handler(cmd)
 
 
