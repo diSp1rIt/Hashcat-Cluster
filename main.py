@@ -6,7 +6,7 @@ from os import chdir
 from time import sleep
 from threading import Thread
 from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM
-
+from nodesystem import *
 
 print_ = print
 
@@ -14,20 +14,6 @@ print_ = print
 def print(*args, **kwargs):
     print_('\r', end='')
     print_(*args, end='\n> ')
-
-
-def send_command(cmd: bytes, ip: str, wait=True):
-    try:
-        with socket(AF_INET, SOCK_STREAM) as s:
-            s.settimeout(5)
-            s.connect((ip, 24545))
-            s.sendall(cmd)
-            if wait:
-                return s.recv(1024)
-            return
-    except Exception as e:
-        print(e)
-        return False
 
 
 def load_hashcat():
@@ -41,21 +27,13 @@ def load_hashcat():
     if platform == 'linux':
         return 'hashcat'
 
-class Node:
-    def __init__(self, ip):
-        self.ip = ip
-        self.benchmark = {}
-
-    def setBenchmark(self, mode, value):
-        self.benchmark[mode] = value
-
 
 process: subprocess.Popen = None
 thread: Thread = None
 last_output = ''
 exit_ = False
-nodes = set()
-progname = load_hashcat()
+controller = NodePool()
+prog_name = load_hashcat()
 
 
 def terminate():
@@ -66,18 +44,23 @@ def terminate():
     exit()
 
 
+def do_benchmark(mode):
+    return subprocess.check_output([prog_name, '-m', mode, '-b', '--quiet', '--machine-readable']).split(b':')[
+        -1].decode().strip()
+
+
 def start_hashcat(hash: str, mask: str, hash_mod: str = '0', workload_profile: str = '1',
                   ):
     global process, thread
 
     try:
-        print(subprocess.check_output([progname, '-m', hash_mod, '--show', hash]).decode())
+        print(subprocess.check_output([prog_name, '-m', hash_mod, '--show', hash]).decode())
         terminate()
     except:
         pass
 
     command = ' '.join([
-        progname,
+        prog_name,
         '--quiet',
         '--status',
         '--status-json',
@@ -142,43 +125,47 @@ def user_command_handler(cmd: str):
         print(status)
     elif cmd_list[0] == 'add':
         if send_command(b'setup', cmd_list[1]) == b'done':
-            nodes.add(cmd_list[1])
+            controller.addNode(Node(cmd_list[1]))
             print(f'Added node {cmd_list[1]}')
         else:
             print(f'Node is not accessible')
     elif cmd_list[0] == 'send':
-        for ip in nodes:
-            res = send_command(' '.join(cmd_list[1:]).encode(), ip)
+        for node in controller:
+            res = send_command(' '.join(cmd_list[1:]).encode(), node.ip)
             if res:
-                print(f'From {ip}: {res}')
+                print(f'From {node.ip}: {res}')
             else:
-                print(f'{ip} is not answering')
+                print(f'{node.ip} is not answering')
     elif cmd_list[0] == 'bench' or cmd_list[0] == 'benchmark':
-        for ip in nodes:
-            send_command(b'bench' + f'|{cmd_list[1]}'.encode(), ip, wait=False)
+        for node in controller:
+            node.doBenchmark(int(cmd_list[1]))
         print('Benchmark started')
+        print('Host:', do_benchmark(cmd_list[1]))
     else:
         print('Command not found')
 
 
 def system_command_handler(cmd: bytes, client: socket, addr: str, server_ip: str):
     cmd = cmd.strip()
-    cmd_list = cmd.split(b'|')
-    if cmd_list[0] == b'echo':
-        client.sendall(cmd_list[1])
-    elif cmd_list[0] == b'setup':
-        nodes.add(addr)
+    command, *args = cmd.split(b'|')
+    if command == b'echo':
+        message = args[0]
+        client.sendall(message)
+    elif command == b'setup':
+        controller.addNode(Node(addr))
         client.sendall(b'done')
         print(f'Added node {addr}')
-    elif cmd_list[0] == b'bench':
+    elif command == b'bench':
+        mode = int(args[0])
         print('Node started benchmark')
-        res = subprocess.check_output([progname, '-m', cmd_list[1].decode(), '-b', '--quiet', '--machine-readable'])
-        with socket(AF_INET, SOCK_STREAM) as s:
-            s.connect((addr, 24545))
-            s.sendall(b'benchans|' + cmd_list[1] + b'|' + res.split(b':')[-1])
-            s.close()
-    elif cmd_list[0] == b'benchans':
-        print(f'From {addr}:', cmd_list[1].decode(), cmd_list[2].decode())
+        res = subprocess.check_output([prog_name, '-m', mode, '-b', '--quiet', '--machine-readable'])
+        send_command(b'benchans|' + str(mode).encode() + b'|' + res.split(b':')[-1].strip(), addr, wait=False)
+    elif command == b'benchans':
+        mode, value = int(args[0]), int(args[1])
+        for node in controller:
+            if node.ip == addr:
+                node.setBenchmark(mode, value)
+        print(f'From {addr}:', mode, value)
     client.close()
 
 
