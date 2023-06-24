@@ -44,8 +44,8 @@ def terminate():
     exit()
 
 
-def do_benchmark(mode):
-    return subprocess.check_output([prog_name, '-m', mode, '-b', '--quiet', '--machine-readable']).split(b':')[
+def do_benchmark(mode: int):
+    return subprocess.check_output([prog_name, '-m', str(mode), '-b', '--quiet', '--machine-readable']).split(b':')[
         -1].decode().strip()
 
 
@@ -158,7 +158,7 @@ def system_command_handler(cmd: bytes, client: socket, addr: str, server_ip: str
     elif command == b'bench':
         mode = int(args[0])
         print('Node started benchmark')
-        res = subprocess.check_output([prog_name, '-m', mode, '-b', '--quiet', '--machine-readable'])
+        res = subprocess.check_output([prog_name, '-m', str(mode), '-b', '--quiet', '--machine-readable'])
         send_command(b'benchans|' + str(mode).encode() + b'|' + res.split(b':')[-1].strip(), addr, wait=False)
     elif command == b'benchans':
         mode, value = int(args[0]), int(args[1])

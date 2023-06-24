@@ -57,7 +57,11 @@ class NodePool:
         return iter(self.nodes)
 
     def addNode(self, node: Node):
-        self.nodes.add(node)
+        if node not in self:
+            self.nodes.add(node)
+
+    def __contains__(self, item: Node):
+        return item in self.nodes
 
     def enumerate(self) -> tuple[int, int]:
         valid = 0
