@@ -125,6 +125,8 @@ def user_command_handler(cmd: str):
         print(status)
     elif cmd_list[0] == 'add':
         if send_command(b'setup', cmd_list[1]) == b'done':
+            for node in controller:
+                node.sendCommand(f'new|{cmd_list[1]}')
             controller.addNode(Node(cmd_list[1]))
             print(f'Added node {cmd_list[1]}')
         else:
@@ -155,6 +157,9 @@ def system_command_handler(cmd: bytes, client: socket, addr: str, server_ip: str
         controller.addNode(Node(addr))
         client.sendall(b'done')
         print(f'Added node {addr}')
+    elif command == b'new':
+        if send_command(b'setup', args[0]) == b'done':
+            print(f'Added node {args[0]}')
     elif command == b'bench':
         mode = int(args[0])
         print('Node started benchmark')
